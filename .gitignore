@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+venv/
+ENV/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+coverage.xml
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+
+# Terraform
+infrastructure/terraform/terraform.tf
+infrastructure/terraform/.terraform/
+infrastructure/terraform/terraform.tfvars
+
+# Lambda
+lambda_processor.zip
+lambda_package/
+
+# Docker
+*.log
+
+# MacOS
+.DS_Store
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+logs/
+*.log
+
+# AWS
+.aws/
