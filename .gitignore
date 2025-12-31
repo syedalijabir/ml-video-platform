@@ -46,6 +46,7 @@ coverage.xml
 # Terraform
 infrastructure/terraform/terraform.tf
 infrastructure/terraform/.terraform/
+infrastructure/terraform/.terraform*
 infrastructure/terraform/terraform.tfvars
 
 # Lambda
