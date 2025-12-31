@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Semantic Search</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --line:#e5e7eb;
+      --accent:#4f46e5;
+      --accent2:#7c3aed;
+      --good:#16a34a;
+      --warn:#d97706;
+      --bad:#dc2626;
+      --shadow: 0 12px 32px rgba(15, 23, 42, .08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:
+        radial-gradient(900px 500px at 15% 0%, rgba(79,70,229,.10), transparent 55%),
+        radial-gradient(800px 450px at 90% 10%, rgba(124,58,237,.09), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      min-height:100vh;
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:26px 16px 60px}
+    .top{
+      display:flex; gap:14px; align-items:flex-start; justify-content:space-between;
+      margin-bottom:16px;
+    }
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{
+      width:40px;height:40px;border-radius:12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display:grid;place-items:center; font-weight:800; color:#fff;
+      box-shadow: 0 12px 26px rgba(79,70,229,.18);
+    }
+    h1{font-size:18px;margin:0;line-height:1.2}
+    .sub{color:var(--muted);font-size:13px;margin-top:2px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .chip{
+      font-size:12px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.7);
+      color: var(--muted);
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+    }
+    .dot{width:8px;height:8px;border-radius:999px;background:#cbd5e1}
+    .chip.good{color:var(--good); border-color: rgba(22,163,74,.25); background: rgba(22,163,74,.06)}
+    .chip.good .dot{background:var(--good)}
+    .chip.warn{color:var(--warn); border-color: rgba(217,119,6,.25); background: rgba(217,119,6,.06)}
+    .chip.warn .dot{background:var(--warn)}
+    .chip.bad{color:var(--bad); border-color: rgba(220,38,38,.25); background: rgba(220,38,38,.06)}
+    .chip.bad .dot{background:var(--bad)}
+
+    .row{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
+    @media (max-width:900px){ .row{grid-template-columns:1fr} }
+
+    .card{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:16px;
+      box-shadow: var(--shadow);
+    }
+
+    .searchbar{display:flex;gap:10px;margin-top:12px}
+    input[type="text"]{
+      flex:1;
+      padding:12px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: #fff;
+      color:var(--text);
+      outline:none;
+      transition:.15s;
+    }
+    input[type="text"]:focus{
+      border-color: rgba(79,70,229,.35);
+      box-shadow: 0 0 0 4px rgba(79,70,229,.10);
+    }
+    input::placeholder{color:#94a3b8}
+
+    .btn{
+      border:1px solid rgba(79,70,229,.25);
+      background: linear-gradient(135deg, rgba(79,70,229,.95), rgba(124,58,237,.95));
+      color:#fff;
+      padding:12px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:700;
+      transition:.15s;
+      white-space:nowrap;
+      box-shadow: 0 10px 22px rgba(79,70,229,.18);
+    }
+    .btn:hover{transform:translateY(-1px); filter:saturate(1.05)}
+    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+    .ghost{
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:650;
+    }
+    .ghost:hover{background:#f8fafc}
+
+    .drop{
+      border:1px dashed #cbd5e1;
+      border-radius:14px;
+      padding:16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background: #fbfbff;
+      transition:.15s;
+    }
+    .drop.drag{border-color: rgba(79,70,229,.65); background: rgba(79,70,229,.06)}
+    .drop strong{display:block}
+    .drop small{color:var(--muted)}
+
+    .divider{height:1px;background:var(--line);margin:12px 0}
+
+    .list{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+    .item{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px 12px;
+      background: #fff;
+      display:flex; justify-content:space-between; gap:12px;
+      transition:.12s;
+    }
+    .item:hover{background:#fafafa}
+    .meta{min-width:0}
+    .title{font-weight:750; font-size:14px; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    .hint{font-size:12px;color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .linkbtn{
+      padding:8px 10px; border-radius:10px;
+      border:1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      cursor:pointer;
+      font-weight:650;
+    }
+    .linkbtn:hover{background:#f8fafc}
+    .linkbtn.danger{border-color:rgba(220,38,38,.25); background: rgba(220,38,38,.05); color: #991b1b}
+    .linkbtn.danger:hover{background: rgba(220,38,38,.10)}
+
+    .results{margin-top:12px; display:none}
+    .rhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .rgrid{margin-top:10px; display:flex;flex-direction:column;gap:10px}
+    .matchRow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .chipTag{
+      padding:6px 10px;border-radius:999px;
+      background: rgba(79,70,229,.08);
+      border:1px solid rgba(79,70,229,.18);
+      cursor:pointer;
+      font-size:12px;
+      color:#3730a3;
+    }
+    .chipTag:hover{background: rgba(79,70,229,.12)}
+
+    .toast{
+      position:fixed; bottom:18px; right:18px;
+      background: #fff;
+      border:1px solid var(--line);
+      padding:12px 14px;
+      border-radius:14px;
+      display:none;
+      max-width:360px;
+      box-shadow: var(--shadow);
+      z-index: 10000;
+    }
+    .toast b{display:block;margin-bottom:3px}
+    .toast small{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo">V</div>
+        <div>
+          <h1>ML Video Search Platform</h1>
+          <div class="sub">Upload → search moments with OpenAI CLIP</div>
+        </div>
+      </div>
+      <div class="chips">
+        <div class="chip" id="apiChip"><span class="dot"></span><span id="apiText">API: checking…</span></div>
+        <div class="chip" id="indexChip"><span class="dot"></span><span id="indexText">Index: —</span></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-weight:750">Search across videos</div>
+            <div class="sub">Try: “person typing on a laptop”, “meeting room”, “outdoor scenery”</div>
+          </div>
+        </div>
+
+        <div class="searchbar">
+          <input id="q" type="text" placeholder="Search query…" />
+          <button class="btn" id="searchBtn">Search</button>
+        </div>
+
+        <div class="results" id="results">
+          <div class="divider"></div>
+          <div class="rhead">
+            <div style="font-weight:750">Results</div>
+            <button class="ghost" id="clearBtn">Clear</button>
+          </div>
+          <div class="rgrid" id="rgrid"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-weight:750">Upload</div>
+          </div>
+          <button class="btn" id="pickBtn">Choose file</button>
+        </div>
+
+        <div style="margin-top:12px" class="drop" id="drop">
+          <div>
+            <strong>Drag & drop a video</strong>
+            <small>MP4 / AVI / MOV / MKV</small>
+          </div>
+          <div class="chip warn" id="uploadChip" style="display:none;">
+          <span class="dot"></span>
+          <span id="uploadText"></span>
+          </div>
+        </div>
+        <input type="file" id="file" accept="video/*" hidden />
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-weight:750">Videos</div>
+          <div class="sub">Available videos for search.</div>
+        </div>
+        <button class="ghost" id="refreshBtn">Refresh</button>
+      </div>
+
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ✅ Player modal MUST be above the script so elements exist when JS wires handlers -->
+  <div id="playerModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="max-width:950px; width:100%; padding:14px;">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px;">
+        <div>
+          <div style="font-weight:800" id="playerTitle">Playing</div>
+          <div class="sub" id="playerSub"></div>
+        </div>
+        <button class="ghost" id="closePlayerBtn">Close</button>
+      </div>
+      <video id="player" controls style="width:100%; border-radius:12px; background:#000;"></video>
+    </div>
+  </div>
+
+<script>
+  const API = window.location.origin;
+  const el = (id) => document.getElementById(id);
+
+  const toast = (title, msg) => {
+    const t = el("toast");
+    t.innerHTML = `<b>${title}</b><small>${msg || ""}</small>`;
+    t.style.display = "block";
+    setTimeout(()=> t.style.display="none", 3200);
+  };
+
+  function escapeHtml(s){
+    return (s || "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  // --- Chips
+  function setChip(chipId, textId, cls, text){
+    const chip = el(chipId);
+    chip.className = `chip ${cls || ""}`.trim();
+    el(textId).textContent = text;
+  }
+
+  function normalizeStatus(s){
+    s = (s || "").toUpperCase();
+    if (s === "COMPLETED") return "SUCCEEDED";
+    return s;
+  }
+
+  function statusBadge(status){
+    const s = normalizeStatus(status);
+    if (s === "SUCCEEDED") return { cls:"good", label:"Ready" };
+    if (s === "PROCESSING") return { cls:"warn", label:"Processing" };
+    if (s === "PENDING" || s === "QUEUED") return { cls:"warn", label:"Queued" };
+    if (s === "FAILED") return { cls:"bad", label:"Failed" };
+    return { cls:"", label:"Uploaded" };
+  }
+
+  async function checkHealth(){
+    try{
+      const r = await fetch(`${API}/health`, { cache: "no-store" });
+      if (!r.ok) throw new Error("down");
+      const data = await r.json().catch(()=>null);
+      const ok = !data || (data.status && data.status !== "degraded") ? true : (data.status === "healthy");
+      setChip("apiChip","apiText", ok ? "good" : "warn", `API: ${ok ? "healthy" : "degraded"}`);
+    }catch{
+      setChip("apiChip","apiText","bad","API: down");
+    }
+  }
+
+  const state = {
+    videosById: new Map(),
+    order: [],
+    pollingMs: 12000,
+    pollTimer: null
+  };
+
+  function renderOrUpdateList(newOrder, newMap){
+    const list = el("list");
+
+    if (!list.children.length){
+      list.innerHTML = "";
+      for (const id of newOrder){
+        const node = buildItemNode(id, newMap.get(id));
+        list.appendChild(node);
+      }
+      return;
+    }
+
+    const sameOrder = JSON.stringify(newOrder) === JSON.stringify(state.order);
+    if (!sameOrder){
+      list.innerHTML = "";
+      for (const id of newOrder){
+        list.appendChild(buildItemNode(id, newMap.get(id)));
+      }
+      return;
+    }
+
+    for (let i=0; i<newOrder.length; i++){
+      const id = newOrder[i];
+      const newEntry = newMap.get(id);
+      const oldEntry = state.videosById.get(id);
+
+      const changed =
+        !oldEntry ||
+        oldEntry.video.filename !== newEntry.video.filename ||
+        oldEntry.video.uploaded_at !== newEntry.video.uploaded_at ||
+        oldEntry.job?.status !== newEntry.job?.status ||
+        oldEntry.job?.error_message !== newEntry.job?.error_message;
+
+      if (changed){
+        const existing = list.children[i];
+        const updated = buildItemNode(id, newEntry);
+        list.replaceChild(updated, existing);
+      }
+    }
+  }
+
+  function buildItemNode(id, entry){
+    const { video, job } = entry;
+    const status = normalizeStatus(job?.status || "UPLOADED");
+    const b = statusBadge(status);
+    const uploaded = new Date(video.uploaded_at).toLocaleString();
+
+    const hint =
+      status === "FAILED" ? (job?.error_message || "Processing failed") :
+      status === "PROCESSING" ? "Analyzing & indexing…" :
+      status === "PENDING" ? "Queued for processing…" :
+      status === "SUCCEEDED" ? "Indexed for search." :
+      "Uploaded. Waiting for processing…";
+
+    const item = document.createElement("div");
+    item.className = "item";
+    item.dataset.id = id;
+
+    const actions = [];
+    actions.push(`<button class="linkbtn" data-action="play">Play</button>`);
+    if (status === "FAILED"){
+    actions.push(`<button class="linkbtn" data-action="retry">Retry</button>`);
+    }
+    actions.push(`<button class="linkbtn danger" data-action="delete">Delete</button>`);
+
+    item.innerHTML = `
+      <div class="meta">
+        <div class="title">📹 ${escapeHtml(video.filename)}</div>
+        <div class="hint">
+          <span class="chip ${b.cls}"><span class="dot"></span>${b.label}</span>
+          <span>Uploaded: ${uploaded}</span>
+          <span>${escapeHtml(hint)}</span>
+        </div>
+      </div>
+      <div class="actions">${actions.join("")}</div>
+    `;
+
+    item.querySelector('[data-action="play"]').onclick = (e) => {
+    e.stopPropagation();
+    openPlayer(video.id, video.filename, 0);
+    };
+
+    item.querySelector('[data-action="delete"]').onclick = () => delVideo(video.id, video.filename);
+    const retryBtn = item.querySelector('[data-action="retry"]');
+    if (retryBtn) retryBtn.onclick = () => retryJob(video.id);
+
+    return item;
+  }
+
+  async function fetchVideosAndJobs(){
+    const [vRes, jRes] = await Promise.all([
+      fetch(`${API}/api/v1/videos/`, { cache:"no-store" }),
+      fetch(`${API}/api/v1/jobs/`, { cache:"no-store" })
+    ]);
+    const videos = await vRes.json();
+    const jobs = await jRes.json();
+
+    const latest = {};
+    for (const j of jobs){
+      const vid = j.video_id;
+      if (!latest[vid] || new Date(j.created_at) > new Date(latest[vid].created_at)){
+        latest[vid] = j;
+      }
+    }
+
+    const newMap = new Map();
+    for (const v of videos){
+      newMap.set(v.id, { video: v, job: latest[v.id] || null });
+    }
+
+    const newOrder = videos.map(v => v.id);
+
+    const ready = videos.filter(v => normalizeStatus(latest[v.id]?.status) === "SUCCEEDED").length;
+    setChip("indexChip","indexText", ready ? "good" : "", `Index: ${ready}/${videos.length} ready`);
+
+    const active = videos.some(v => {
+      const s = normalizeStatus(latest[v.id]?.status);
+      return s === "PENDING" || s === "PROCESSING" || s === "QUEUED";
+    });
+    state.pollingMs = active ? 15000 : 60000;
+
+    if (!videos.length){
+      el("list").innerHTML = `<div class="sub">No videos yet. Upload one to begin.</div>`;
+    } else {
+      renderOrUpdateList(newOrder, newMap);
+    }
+
+    state.videosById = newMap;
+    state.order = newOrder;
+  }
+
+  async function loadVideos(){
+    try{
+      if (!state.order.length) el("list").innerHTML = `<div class="sub">Loading…</div>`;
+      await fetchVideosAndJobs();
+    }catch(err){
+      el("list").innerHTML = `<div class="sub">Failed to load: ${err.message}</div>`;
+    }
+  }
+
+  async function upload(file){
+    const uploadChip = el("uploadChip");
+    uploadChip.style.display = "inline-flex";
+    setChip("uploadChip", "uploadText", "warn", "Uploading…");
+    try{
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const up = await fetch(`${API}/api/v1/videos/upload`, { method:"POST", body: fd });
+      if (!up.ok){
+        const body = await up.json().catch(()=>({detail:"Upload failed"}));
+        throw new Error(body.detail || "Upload failed");
+      }
+      await up.json();
+      toast("Uploaded", "File uploaded successfully.");
+      setTimeout(() => {
+      uploadChip.style.display = "none";
+      }, 800);
+      await loadVideos();
+    }catch(err){
+      uploadChip.style.display = "none";
+      toast("Upload failed", err.message);
+    }
+  }
+
+  async function retryJob(videoId){
+    try{
+      await fetch(`${API}/api/v1/jobs/`,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ video_id: videoId })
+      });
+      toast("Retry queued", "Job re-created.");
+      loadVideos();
+    }catch(err){
+      toast("Retry failed", err.message);
+    }
+  }
+
+  async function delVideo(videoId, filename){
+    if (!confirm(`Delete "${filename}"? This removes the video and associated data.`)) return;
+    try{
+      const r = await fetch(`${API}/api/v1/videos/${videoId}`, { method:"DELETE" });
+      if (!r.ok) throw new Error("Delete failed");
+      toast("Deleted", "Video removed.");
+      loadVideos();
+    }catch(err){
+      toast("Delete failed", err.message);
+    }
+  }
+
+  async function doSearch(query){
+    el("results").style.display = "block";
+    el("rgrid").innerHTML = `<div class="sub">Searching…</div>`;
+    try{
+      const threshold = 0.25;
+      const r = await fetch(`${API}/api/v1/search/`,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ query, threshold, max_results_per_video: 10, max_videos: 20 })
+      });
+      if (!r.ok) throw new Error("Search failed");
+      const data = await r.json();
+
+      if (!data.results?.length){
+        el("rgrid").innerHTML = `<div class="sub">No matches. Try a different query.</div>`;
+        return;
+      }
+
+      el("rgrid").innerHTML = "";
+
+      for (const v of data.results){
+        const box = document.createElement("div");
+        box.className = "item";
+
+        box.innerHTML = `
+          <div class="meta" style="width:100%">
+            <div class="title">${escapeHtml(v.video_filename)}</div>
+            <div class="sub">Matches: ${v.matches.length}</div>
+            <div class="matchRow"></div>
+          </div>
+        `;
+
+        const row = box.querySelector(".matchRow");
+        (v.matches || []).forEach(m => {
+          const chip = document.createElement("span");
+          chip.className = "chipTag";
+          chip.textContent = `⏱ ${m.time_formatted} • ${(m.similarity_score*100).toFixed(0)}%`;
+          chip.onclick = () => openPlayer(v.video_id, v.video_filename, m.timestamp);
+          row.appendChild(chip);
+        });
+
+        // ✅ FIX: actually add the box to the grid
+        el("rgrid").appendChild(box);
+      }
+
+      toast("Search complete", `Found matches in ${data.total_videos} videos.`);
+    }catch(err){
+      el("rgrid").innerHTML = `<div class="sub">Error: ${err.message}</div>`;
+    }
+  }
+
+  // --- Player
+  function formatTime(sec){
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${String(s).padStart(2,"0")}`;
+  }
+
+  async function openPlayer(videoId, filename, timestampSec){
+    try{
+      const r = await fetch(`${API}/api/v1/videos/${videoId}/play`, { cache: "no-store" });
+      if (!r.ok) throw new Error("Failed to get play URL");
+      const data = await r.json();
+
+      el("playerTitle").textContent = `📹 ${filename || "Video"}`;
+      el("playerSub").textContent = `Jumping to ${formatTime(timestampSec)} (${timestampSec.toFixed(2)}s)`;
+
+      const modal = el("playerModal");
+      const player = el("player");
+
+      modal.style.display = "flex";
+      player.src = data.url;
+
+      player.onloadedmetadata = () => {
+        player.currentTime = Math.max(0, timestampSec);
+        player.play().catch(()=>{});
+      };
+    } catch (err) {
+      toast("Player error", err.message);
+    }
+  }
+
+  function closePlayer(){
+    const modal = el("playerModal");
+    const player = el("player");
+    player.pause();
+    player.removeAttribute("src");
+    player.load();
+    modal.style.display = "none";
+  }
+
+  el("closePlayerBtn").onclick = closePlayer;
+  el("playerModal").addEventListener("click", (e) => {
+    if (e.target === el("playerModal")) closePlayer();
+  });
+
+  // --- Wire UI events
+  el("pickBtn").onclick = () => el("file").click();
+  el("file").onchange = (e) => { const f = e.target.files[0]; if (f) upload(f); };
+
+  el("refreshBtn").onclick = loadVideos;
+  el("searchBtn").onclick = () => {
+    const q = el("q").value.trim();
+    if (!q) return toast("Search", "Enter a query.");
+    doSearch(q);
+  };
+  el("clearBtn").onclick = () => {
+    el("results").style.display = "none";
+    el("q").value = "";
+  };
+  el("q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") el("searchBtn").click();
+  });
+
+  const drop = el("drop");
+  drop.addEventListener("dragover", (e)=>{ e.preventDefault(); drop.classList.add("drag"); });
+  drop.addEventListener("dragleave", ()=> drop.classList.remove("drag"));
+  drop.addEventListener("drop", (e)=>{
+    e.preventDefault(); drop.classList.remove("drag");
+    const f = e.dataTransfer.files[0];
+    if (f) upload(f);
+  });
+
+  async function pollLoop(){
+    await loadVideos();
+    clearTimeout(state.pollTimer);
+    state.pollTimer = setTimeout(pollLoop, state.pollingMs);
+  }
+
+  checkHealth();
+  setInterval(checkHealth, 30000);
+  loadVideos();
+  pollLoop();
+</script>
+
+</body>
+</html>
