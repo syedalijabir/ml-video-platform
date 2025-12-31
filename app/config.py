@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
+    max_videos_limit: int = 10
 
     # Database
     database_url: str
