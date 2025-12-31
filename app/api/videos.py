@@ -1,14 +1,16 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 import boto3
 from botocore.exceptions import ClientError
+import json
 import uuid
 import os
+from sqlalchemy import func
 
 from app.database import get_db
 from app.config import get_settings
-from app.models import Video
+from app.models import Video, ProcessingJob, JobStatus
 from app.schemas import VideoUploadResponse, VideoDetail
 
 router = APIRouter()
@@ -29,11 +31,22 @@ def validate_video_file(file: UploadFile) -> None:
             detail=f"Unsupported format. Supported: {', '.join(settings.supported_formats)}"
         )
     
-    # Check file size (done during upload in chunks)
+    # Check file size
     if hasattr(file, 'size') and file.size > settings.max_video_size_mb * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File too large. Max size: {settings.max_video_size_mb}MB"
+        )
+
+
+def check_video_limit(db: Session):
+    """Check if maximum video limit is reached"""
+    video_count = db.query(func.count(Video.id)).scalar()
+
+    if video_count >= settings.max_videos_limit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum video limit reached ({settings.max_videos_limit} videos). Please delete some videos before uploading new ones."
         )
 
 
@@ -44,7 +57,7 @@ async def upload_video(
     s3_client = Depends(get_s3_client)
 ):
     """Upload a video file to S3 and register it in the database"""
-    
+    check_video_limit(db)
     validate_video_file(file)
     
     # Generate unique ID and S3 key
@@ -76,6 +89,31 @@ async def upload_video(
         db.add(video)
         db.commit()
         db.refresh(video)
+
+        # auto-create a job
+        job_id = str(uuid.uuid4())
+        job = ProcessingJob(
+            id=job_id,
+            video_id=video_id,
+            status=JobStatus.PENDING
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+
+        # Send message to SQS
+        message = {
+            "job_id": job_id,
+            "video_id": video_id,
+            "s3_key": video.s3_key,
+            "s3_bucket": settings.s3_bucket_name
+        }
+        sqs = boto3.client("sqs", region_name=settings.aws_region)
+        sqs.send_message(
+            QueueUrl=settings.sqs_queue_url,
+            MessageBody=json.dumps(message),
+            MessageAttributes={"JobId": {"StringValue": job_id, "DataType": "String"}}
+        )
         
         return video
         
@@ -116,11 +154,11 @@ async def list_videos(
 ):
     """List all videos with pagination"""
     
-    videos = db.query(Video).offset(skip).limit(limit).all()
+    videos = db.query(Video).order_by(Video.uploaded_at.desc()).offset(skip).limit(limit).all()
     return videos
 
 
-@router.delete("/{video_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{video_id}", status_code=status.HTTP_200_OK)
 async def delete_video(
     video_id: str,
     db: Session = Depends(get_db),
@@ -137,19 +175,67 @@ async def delete_video(
         )
     
     try:
+        # Delete associated jobs
+        db.query(ProcessingJob).filter(ProcessingJob.video_id == video_id).delete()
         # Delete from S3
-        s3_client.delete_object(
-            Bucket=settings.s3_bucket_name,
-            Key=video.s3_key
-        )
+        try:
+            s3_client.delete_object(
+                Bucket=settings.s3_bucket_name,
+                Key=video.s3_key
+            )
+        except ClientError:
+            # continue with database deletion
+            pass
         
         # Delete from database
         db.delete(video)
         db.commit()
         
-    except ClientError as e:
+        return {
+            "status": "success",
+            "message": f"Video '{video.filename}' deleted successfully"
+        }
+        
+    except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete from S3: {str(e)}"
+            detail=f"Failed to delete video: {str(e)}"
         )
+
+
+@router.get("/stats/count", status_code=status.HTTP_200_OK)
+async def get_video_stats(db: Session = Depends(get_db)):
+    """Get video statistics including count"""
+    
+    video_count = db.query(func.count(Video.id)).scalar()
+    total_size_bytes = db.query(func.sum(Video.size_bytes)).scalar() or 0
+    total_size_mb = total_size_bytes / (1024 * 1024)
+    
+    return {
+        "video_count": video_count,
+        "total_size_mb": round(total_size_mb, 2),
+        "max_videos": 10,
+        "remaining_slots": max(0, 10 - video_count)
+    }
+
+@router.get("/{video_id}/play")
+async def get_video_play_url(
+    video_id: str,
+    expires_seconds: int = Query(900, ge=60, le=3600),
+    db: Session = Depends(get_db),
+    s3_client = Depends(get_s3_client),
+):
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    try:
+        url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": settings.s3_bucket_name, "Key": video.s3_key},
+            ExpiresIn=expires_seconds,
+        )
+        return {"video_id": video_id, "url": url}
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate play URL: {e}")
