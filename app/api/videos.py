@@ -206,7 +206,7 @@ async def delete_video(
 
 @router.get("/stats/count", status_code=status.HTTP_200_OK)
 async def get_video_stats(db: Session = Depends(get_db)):
-    """Get video statistics including count"""
+    """Get video statistics"""
     
     video_count = db.query(func.count(Video.id)).scalar()
     total_size_bytes = db.query(func.sum(Video.size_bytes)).scalar() or 0
