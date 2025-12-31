@@ -12,7 +12,7 @@ import os
 from app.config import get_settings
 from app.database import get_db, engine, Base
 from app.schemas import HealthCheck
-from app.api import videos, jobs
+from app.api import videos, jobs, search
 
 settings = get_settings()
 
@@ -23,8 +23,7 @@ app = FastAPI(
     title=settings.app_name,
     description="ML Video Platform API",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url="/docs"
 )
 
 app.add_middleware(
@@ -37,6 +36,7 @@ app.add_middleware(
 
 app.include_router(videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["videos"])
 app.include_router(jobs.router, prefix=f"{settings.api_v1_prefix}/jobs", tags=["jobs"])
+app.include_router(search.router, prefix=f"{settings.api_v1_prefix}/search", tags=["search"])
 
 
 @app.get("/")
