@@ -1,0 +1,28 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc \
+    curl \
+    libgl1 \
+    mesa-utils \
+    libglu1-mesa-dev \
+    freeglut3-dev \
+    libgl1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+    
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY worker/ ./worker/
+COPY app/ ./app/
+
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+    CMD python -c "from worker.worker import health_check; exit(0 if health_check() else 1)" || exit 1
+
+CMD ["python", "-u", "-m", "worker.worker"]
