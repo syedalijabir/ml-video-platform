@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     s3_bucket_name: str
     sqs_queue_url: str
 
+    # pinecone
+    pinecone_api_key: str
+    pinecone_index_name: str = "video-frames"
+
     # Processing
     max_video_size_mb: int = 500
     supported_formats: List[str] = ["mp4", "avi", "mov", "mkv"]
