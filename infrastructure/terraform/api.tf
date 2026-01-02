@@ -111,6 +111,14 @@ resource "aws_ecs_task_definition" "api" {
           value = aws_sqs_queue.processing_queue.url
         },
         {
+          name  = "PINECONE_API_KEY"
+          value = var.pinecone_api_key
+        },
+        {
+          name  = "PINECONE_INDEX"
+          value = local.pinecone_index
+        },
+        {
           name  = "DATABASE_URL"
           value = "postgresql://${aws_ssm_parameter.db_username.value}:${aws_ssm_parameter.db_password.value}@${aws_db_instance.postgres.endpoint}/${aws_ssm_parameter.db_name.value}"
         }

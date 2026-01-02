@@ -53,6 +53,11 @@ variable "hosted_zone" {
   type = string
 }
 
+variable "pinecone_api_key" {
+  type = string
+  sensitive = true
+}
+
 variable "tags" {
   description = "A mapping of tags to assign to all resources"
   type        = map(string)
