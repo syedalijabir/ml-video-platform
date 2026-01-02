@@ -57,8 +57,8 @@ resource "aws_db_instance" "postgres" {
   engine         = "postgres"
   engine_version = "15.15"
   
-  instance_class    = "db.t3.micro"
-  allocated_storage = 20
+  instance_class    = "db.t4g.micro"
+  allocated_storage = 10
   storage_type      = "gp3"
   storage_encrypted = true
   
