@@ -75,6 +75,8 @@ resource "aws_db_instance" "postgres" {
   
   deletion_protection = false
   skip_final_snapshot = true
+  final_snapshot_identifier = null
+  delete_automated_backups = true
     
   tags = merge(
     local.common_tags,
