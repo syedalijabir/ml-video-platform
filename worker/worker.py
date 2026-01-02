@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from worker.video_analyzer import VideoAnalyzer
 from app.models import ProcessingJob, JobStatus, VideoFrame, Video
 from app.config import get_settings
+from app.pinecone_client import upsert_embeddings
 
 settings = get_settings()
 
@@ -63,40 +64,38 @@ def update_job_status(db, job_id: str, status: JobStatus, **kwargs):
         return None
 
 
-def store_frame_embeddings(db, video_id: str, frames_data: list, embeddings_array):
+def store_frame_embeddings(video_id: str, video_filename: str, frames_data: list, embeddings_array):
     """
-    Store frame embeddings in database for semantic search
+    Store frame embeddings in Pinecone
     
     Args:
-        db: Database session
         video_id: ID of the video
+        video_filename: Name of the video file
         frames_data: List of dicts with frame_index and timestamp
         embeddings_array: numpy array of embeddings (n_frames, 512)
     """
-    print(f"Storing {len(frames_data)} frame embeddings")
+    print(f"Storing {len(frames_data)} embeddings to Pinecone...")
     
-    # Delete existing frames for this video (in case of reprocessing)
-    db.query(VideoFrame).filter(VideoFrame.video_id == video_id).delete()
-    
-    # Create VideoFrame objects
-    video_frames = []
+    frame_embeddings = []
     for i, frame_info in enumerate(frames_data):
-        embedding_list = embeddings_array[i].tolist()  # Convert numpy to list
+        frame_id = f"{video_id}_frame_{i}"
         
-        video_frame = VideoFrame(
-            video_id=video_id,
-            frame_index=frame_info['frame_index'],
-            timestamp=frame_info['timestamp'],
-            embedding=embedding_list
-        )
-        video_frames.append(video_frame)
+        frame_embeddings.append({
+            'frame_id': frame_id,
+            'embedding': embeddings_array[i],
+            'metadata': {
+                'video_id': video_id,
+                'video_filename': video_filename,
+                'frame_index': frame_info['frame_index'],
+                'timestamp': float(frame_info['timestamp'])
+            }
+        })
     
-    # Bulk insert
-    db.bulk_save_objects(video_frames)
-    db.commit()
+    # Upsert to Pinecone
+    result = upsert_embeddings(video_id, frame_embeddings)
     
-    print(f"Stored {len(video_frames)} frame embeddings")
-    return len(video_frames)
+    print(f"Stored {result['upserted_count']} embeddings in Pinecone")
+    return result['upserted_count']
 
 
 def process_message(message, db):
@@ -119,7 +118,9 @@ def process_message(message, db):
             status=JobStatus.PROCESSING,
             started_at=datetime.utcnow()
         )
-        
+        video = db.query(Video).filter(Video.id == video_id).first()
+        if not video:
+            raise Exception(f"Video {video_id} not found in database")
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
             tmp_path = tmp_file.name
             print(f"Downloading from S3")
@@ -143,9 +144,13 @@ def process_message(message, db):
             for i in range(len(frames))
         ]
         
-        embeddings_count = store_frame_embeddings(db, video_id, frames_data, embeddings)
+        embeddings_count = store_frame_embeddings(
+            video_id, 
+            video.filename,
+            frames_data, 
+            embeddings
+        )
         
-        video = db.query(Video).filter(Video.id == video_id).first()
         if video and video.duration_seconds is None:
             video.duration_seconds = video_info['duration']
             db.commit()
