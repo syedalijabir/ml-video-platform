@@ -12,6 +12,7 @@ from app.database import get_db
 from app.config import get_settings
 from app.models import Video, ProcessingJob, JobStatus
 from app.schemas import VideoUploadResponse, VideoDetail
+from app.pinecone_client import delete_video_embeddings
 
 router = APIRouter()
 settings = get_settings()
@@ -19,6 +20,10 @@ settings = get_settings()
 
 def get_s3_client():
     return boto3.client('s3', region_name=settings.aws_region)
+
+
+def get_sqs_client():
+    return boto3.client("sqs", region_name=settings.aws_region)
 
 
 def validate_video_file(file: UploadFile) -> None:
@@ -46,15 +51,56 @@ def check_video_limit(db: Session):
     if video_count >= settings.max_videos_limit:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximum video limit reached ({settings.max_videos_limit} videos). Please delete some videos before uploading new ones."
+            detail=(
+                f"Maximum video limit reached ({settings.max_videos_limit} videos). "
+                f"Please delete some videos before uploading new ones."
+            ),
         )
+
+@router.get("/stats/count", status_code=status.HTTP_200_OK)
+async def get_video_stats(db: Session = Depends(get_db)):
+    """Get video statistics"""
+    
+    video_count = db.query(func.count(Video.id)).scalar()
+    total_size_bytes = db.query(func.sum(Video.size_bytes)).scalar() or 0
+    total_size_mb = total_size_bytes / (1024 * 1024)
+    
+    return {
+        "video_count": video_count,
+        "total_size_mb": round(total_size_mb, 2),
+        "max_videos": settings.max_videos_limit,
+        "remaining_slots": max(0, settings.max_videos_limit - video_count),
+    }
+
+
+@router.get("/{video_id}/play")
+async def get_video_play_url(
+    video_id: str,
+    expires_seconds: int = Query(900, ge=60, le=3600),
+    db: Session = Depends(get_db),
+    s3_client = Depends(get_s3_client),
+):
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    try:
+        url = s3_client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": settings.s3_bucket_name, "Key": video.s3_key},
+            ExpiresIn=expires_seconds,
+        )
+        return {"video_id": video_id, "url": url}
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate play URL: {e}")
 
 
 @router.post("/upload", response_model=VideoUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_video(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    s3_client = Depends(get_s3_client)
+    s3_client  = Depends(get_s3_client),
+    sqs_client = Depends(get_sqs_client)
 ):
     """Upload a video file to S3 and register it in the database"""
     check_video_limit(db)
@@ -108,8 +154,7 @@ async def upload_video(
             "s3_key": video.s3_key,
             "s3_bucket": settings.s3_bucket_name
         }
-        sqs = boto3.client("sqs", region_name=settings.aws_region)
-        sqs.send_message(
+        sqs_client.send_message(
             QueueUrl=settings.sqs_queue_url,
             MessageBody=json.dumps(message),
             MessageAttributes={"JobId": {"StringValue": job_id, "DataType": "String"}}
@@ -129,6 +174,22 @@ async def upload_video(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Upload failed: {str(e)}"
         )
+            
+            
+@router.get("/", response_model=List[VideoDetail])
+async def list_videos(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """List all videos with pagination"""    
+    return (
+        db.query(Video)
+        .order_by(Video.uploaded_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{video_id}", response_model=VideoDetail)
@@ -146,18 +207,6 @@ async def get_video(video_id: str, db: Session = Depends(get_db)):
     return video
 
 
-@router.get("/", response_model=List[VideoDetail])
-async def list_videos(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """List all videos with pagination"""
-    
-    videos = db.query(Video).order_by(Video.uploaded_at.desc()).offset(skip).limit(limit).all()
-    return videos
-
-
 @router.delete("/{video_id}", status_code=status.HTTP_200_OK)
 async def delete_video(
     video_id: str,
@@ -165,18 +214,29 @@ async def delete_video(
     s3_client = Depends(get_s3_client)
 ):
     """Delete a video from S3 and database"""
-    
     video = db.query(Video).filter(Video.id == video_id).first()
-    
     if not video:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Video {video_id} not found"
         )
-    
+
+    filename = video.filename
+    s3_key = video.s3_key
+
     try:
-        # Delete associated jobs
+        #Delete embeddings from Pinecone
+        try:
+            delete_video_embeddings(video_id)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete Pinecone embeddings for video {video_id}: {str(e)}",
+            )
+
+        #Delete associated jobs
         db.query(ProcessingJob).filter(ProcessingJob.video_id == video_id).delete()
+
         # Delete from S3
         try:
             s3_client.delete_object(
@@ -195,47 +255,10 @@ async def delete_video(
             "status": "success",
             "message": f"Video '{video.filename}' deleted successfully"
         }
-        
+
     except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete video: {str(e)}"
         )
-
-
-@router.get("/stats/count", status_code=status.HTTP_200_OK)
-async def get_video_stats(db: Session = Depends(get_db)):
-    """Get video statistics"""
-    
-    video_count = db.query(func.count(Video.id)).scalar()
-    total_size_bytes = db.query(func.sum(Video.size_bytes)).scalar() or 0
-    total_size_mb = total_size_bytes / (1024 * 1024)
-    
-    return {
-        "video_count": video_count,
-        "total_size_mb": round(total_size_mb, 2),
-        "max_videos": 10,
-        "remaining_slots": max(0, 10 - video_count)
-    }
-
-@router.get("/{video_id}/play")
-async def get_video_play_url(
-    video_id: str,
-    expires_seconds: int = Query(900, ge=60, le=3600),
-    db: Session = Depends(get_db),
-    s3_client = Depends(get_s3_client),
-):
-    video = db.query(Video).filter(Video.id == video_id).first()
-    if not video:
-        raise HTTPException(status_code=404, detail="Video not found")
-
-    try:
-        url = s3_client.generate_presigned_url(
-            ClientMethod="get_object",
-            Params={"Bucket": settings.s3_bucket_name, "Key": video.s3_key},
-            ExpiresIn=expires_seconds,
-        )
-        return {"video_id": video_id, "url": url}
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate play URL: {e}")

@@ -72,6 +72,14 @@ async def create_job(
         
     except ClientError as e:
         db.rollback()
+        # If SQS failed, mark job as failed
+        try:
+            job.status = JobStatus.FAILED
+            job.error_message = f"SQS enqueue failed: {str(e)}"
+            db.add(job)
+            db.commit()
+        except Exception:
+            db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to queue job: {str(e)}"
@@ -117,7 +125,12 @@ async def list_jobs(
     if status_filter:
         query = query.filter(ProcessingJob.status == status_filter)
     
-    jobs = query.order_by(ProcessingJob.created_at.desc()).offset(skip).limit(limit).all()
+    jobs = (
+        query.order_by(ProcessingJob.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return jobs
 
 
@@ -140,5 +153,12 @@ async def delete_job(job_id: str, db: Session = Depends(get_db)):
             detail="Cannot delete job that is pending or processing"
         )
     
-    db.delete(job)
-    db.commit()
+    try:
+        db.delete(job)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete job: {str(e)}",
+        )

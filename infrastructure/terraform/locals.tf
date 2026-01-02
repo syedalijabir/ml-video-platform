@@ -1,5 +1,6 @@
 locals {
-  system      = "ml-video-platform"
+  system         = "ml-video-platform"
+  pinecone_index = "video-frames"
 }
 
 locals {

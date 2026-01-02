@@ -84,7 +84,7 @@ class SearchRequest(BaseModel):
 
 
 class SearchMatch(BaseModel):
-    frame_id: int
+    frame_id: str
     frame_index: int
     timestamp: float
     time_formatted: str
