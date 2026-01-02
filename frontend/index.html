@@ -196,7 +196,7 @@
         <div class="logo">V</div>
         <div>
           <h1>ML Video Search Platform</h1>
-          <div class="sub">Upload → search moments with OpenAI CLIP</div>
+          <div class="sub">Upload → Search moments with AI</div>
         </div>
       </div>
       <div class="chips">
@@ -210,7 +210,7 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
           <div>
             <div style="font-weight:750">Search across videos</div>
-            <div class="sub">Try: “person typing on a laptop”, “meeting room”, “outdoor scenery”</div>
+            <div class="sub">Try: "waves in the ocean", "a dog walking", "people celebrating"</div>
           </div>
         </div>
 
@@ -223,6 +223,7 @@
           <div class="divider"></div>
           <div class="rhead">
             <div style="font-weight:750">Results</div>
+            <div class="sub">Click on a timestamp to play video</div>
             <button class="ghost" id="clearBtn">Clear</button>
           </div>
           <div class="rgrid" id="rgrid"></div>
@@ -460,7 +461,7 @@
       const s = normalizeStatus(latest[v.id]?.status);
       return s === "PENDING" || s === "PROCESSING" || s === "QUEUED";
     });
-    state.pollingMs = active ? 15000 : 60000;
+    state.pollingMs = active ? 5000 : 60000;
 
     if (!videos.length){
       el("list").innerHTML = `<div class="sub">No videos yet. Upload one to begin.</div>`;
