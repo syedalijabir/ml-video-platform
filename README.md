@@ -29,7 +29,7 @@ f
 ### System Design
 
 <div align="center">
-  <img src="./docs/diagrams/top-level.png" alt="Video search high-level architecture" width="75%">
+  <img src="./docs/diagrams/top-level.png" alt="Video search high-level architecture" width="90%">
 </div>
 
 ### Component Details
