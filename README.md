@@ -12,7 +12,7 @@
 An ML infrastructure that enables natural language search across video content. Upload videos, and search for moments using queries like "people celebrating," "ocean waves," or "dog running in park." The system extracts frames, generates embeddings using OpenAI's CLIP model, and performs semantic similarity matching.
 
 <div align="center">
-  <img src="./docs/diagrams/frontend.png" alt="User Interface" width="75%">
+  <img src="./docs/diagrams/frontend.png" alt="User Interface" width="90%">
 </div>
 f
 
