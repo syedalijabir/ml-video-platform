@@ -14,7 +14,6 @@ An ML infrastructure that enables natural language search across video content. 
 <div align="center">
   <img src="./diagrams/frontend.png" alt="User Interface" width="75%">
 </div>
-f
 
 ### Key Features
 
