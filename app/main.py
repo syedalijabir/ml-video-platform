@@ -34,6 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
 app.include_router(videos.router, prefix=f"{settings.api_v1_prefix}/videos", tags=["videos"])
 app.include_router(jobs.router, prefix=f"{settings.api_v1_prefix}/jobs", tags=["jobs"])
 app.include_router(search.router, prefix=f"{settings.api_v1_prefix}/search", tags=["search"])
