@@ -63,6 +63,20 @@
     .chip.bad{color:var(--bad); border-color: rgba(220,38,38,.25); background: rgba(220,38,38,.06)}
     .chip.bad .dot{background:var(--bad)}
 
+    .chip.link{
+      text-decoration:none;
+      cursor:pointer;
+    }
+    .chip.link:hover{
+      background: rgba(255,255,255,.95);
+    }
+    .gh-ico{
+      width:14px;
+      height:14px;
+      display:inline-block;
+      vertical-align:middle;
+    }
+
     .row{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
     @media (max-width:900px){ .row{grid-template-columns:1fr} }
 
@@ -155,6 +169,7 @@
       color: var(--text);
       cursor:pointer;
       font-weight:650;
+      font-size:13px;
     }
     .linkbtn:hover{background:#f8fafc}
     .linkbtn.danger{border-color:rgba(220,38,38,.25); background: rgba(220,38,38,.05); color: #991b1b}
@@ -187,6 +202,68 @@
     }
     .toast b{display:block;margin-bottom:3px}
     .toast small{color:var(--muted)}
+
+    /* Collapsible Architecture Section */
+    .arch-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .arch-header:hover{opacity:.85}
+    .arch-toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:13px;
+      color:var(--accent);
+      font-weight:650;
+    }
+    .arch-arrow{
+      transition: transform .2s;
+      font-size:14px;
+    }
+    .arch-arrow.open{
+      transform: rotate(90deg);
+    }
+    .arch-content{
+      max-height:0;
+      overflow:hidden;
+      transition: max-height .3s ease-out;
+    }
+    .arch-content.open{
+      max-height:2000px;
+      transition: max-height .4s ease-in;
+    }
+    .arch-inner{
+      padding-top:14px;
+    }
+    .arch-diagram{
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .arch-diagram img{
+      width:100%;
+      display:block;
+    }
+    .arch-info{
+      margin-top:12px;
+      padding:12px;
+      background:rgba(79,70,229,.06);
+      border-radius:10px;
+      border:1px solid rgba(79,70,229,.15);
+      font-size:13px;
+      color:var(--muted);
+    }
+    .arch-info strong{
+      color:var(--text);
+      display:block;
+      margin-bottom:4px;
+    }
   </style>
 </head>
 <body>
@@ -199,10 +276,31 @@
           <div class="sub">Upload → Search moments with AI</div>
         </div>
       </div>
+
       <div class="chips">
+        <a
+          class="chip link"
+          href="https://www.github.com/syedalijabir/ml-video-platform"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open GitHub repository"
+        >
+          <svg class="gh-ico" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+            0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52
+            -.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2
+            -3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82
+            .64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08
+            2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07
+            -.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+
         <div class="chip" id="apiChip"><span class="dot"></span><span id="apiText">API: checking…</span></div>
         <div class="chip" id="indexChip"><span class="dot"></span><span id="indexText">Index: —</span></div>
       </div>
+
     </div>
 
     <div class="row">
@@ -263,11 +361,86 @@
 
       <div class="list" id="list"></div>
     </div>
-  </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="arch-header" id="archHeader">
+        <div>
+          <div style="font-weight:750">AWS Architecture</div>
+          <div class="sub">How the ML video search platform runs on AWS</div>
+        </div>
+        <div class="arch-toggle">
+          <span id="archToggleText">Show</span>
+          <span class="arch-arrow" id="archArrow">▶</span>
+        </div>
+      </div>
+      
+      <div class="arch-content" id="archContent">
+        <div class="arch-inner">
+          <div class="arch-diagram">
+            <img id="archImg" src="/static/architecture-diagram.png" alt="Architecture Diagram" onerror="this.parentElement.innerHTML='<div style=\'padding:40px;text-align:center;color:var(--muted)\'>Image not found.</div>'" />
+          </div>
+          <div class="arch-info">
+            <strong style="font-size:14px;margin-bottom:8px">Infrastructure Components:</strong>
+            
+            <div style="margin-top:10px">
+              <strong style="display:inline;color:#4f46e5">Application Load Balancer (ALB):</strong> 
+              Distributes incoming traffic across ECS tasks, provides SSL termination and health checks
+            </div>
+            
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">ECS - API Service:</strong> 
+              Containerized FastAPI application with auto-scaling based on CPU/memory metrics. Handles video upload, search queries, and playback endpoints
+            </div>
+
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">CLIP Image Model (Hugging Face):</strong> 
+              OpenAI's CLIP model converts video frames and search queries into embeddings for semantic matching
+            </div>
+            
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">Pinecone Vector Database:</strong> 
+              Stores 512-dimensional embeddings generated by CLIP model. Enables semantic similarity search across video frames
+            </div>
+
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">Amazon RDS (PostgreSQL):</strong> 
+              Relational database storing video metadata, processing job status, and frame timestamps
+            </div>
+            
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">ECS - Worker Service:</strong> 
+              Background processing tasks that scale automatically based on SQS queue depth. Extracts frames from videos and generates embeddings using CLIP
+            </div>
+            
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">Amazon SQS:</strong> 
+              Message queue for asynchronous video processing jobs. Triggers worker auto-scaling when queue depth increases
+            </div>
+
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">Amazon ECR:</strong> 
+              Private container registry storing Docker images for both API and Worker services
+            </div>
+            
+            <div style="margin-top:8px">
+              <strong style="display:inline;color:#4f46e5">Amazon S3:</strong> 
+              Object storage for uploaded videos and extracted frame images. Serves videos via pre-signed URLs
+            </div>            
+            
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(79,70,229,.2)">
+              <strong style="display:block;margin-bottom:4px">Processing Flow:</strong>
+              <span style="font-size:12px">
+                1. Video uploaded → S3 → Job queued in SQS → 2. Worker extracts frames → 3. CLIP generates embeddings → 4. Embeddings stored in Pinecone → 5. Search queries vectorized and matched against Pinecone index
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
   <div class="toast" id="toast"></div>
 
-  <!-- ✅ Player modal MUST be above the script so elements exist when JS wires handlers -->
+  <!-- Video player modal -->
   <div id="playerModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:9999; align-items:center; justify-content:center; padding:16px;">
     <div class="card" style="max-width:950px; width:100%; padding:14px;">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px;">
@@ -339,7 +512,8 @@
     videosById: new Map(),
     order: [],
     pollingMs: 12000,
-    pollTimer: null
+    pollTimer: null,
+    archOpen: false
   };
 
   function renderOrUpdateList(newOrder, newMap){
@@ -409,7 +583,7 @@
 
     item.innerHTML = `
       <div class="meta">
-        <div class="title">📹 ${escapeHtml(video.filename)}</div>
+        <div class="title">🎬 ${escapeHtml(video.filename)}</div>
         <div class="hint">
           <span class="chip ${b.cls}"><span class="dot"></span>${b.label}</span>
           <span>Uploaded: ${uploaded}</span>
@@ -574,7 +748,6 @@
           row.appendChild(chip);
         });
 
-        // ✅ FIX: actually add the box to the grid
         el("rgrid").appendChild(box);
       }
 
@@ -597,7 +770,7 @@
       if (!r.ok) throw new Error("Failed to get play URL");
       const data = await r.json();
 
-      el("playerTitle").textContent = `📹 ${filename || "Video"}`;
+      el("playerTitle").textContent = `🎬 ${filename || "Video"}`;
       el("playerSub").textContent = `Jumping to ${formatTime(timestampSec)} (${timestampSec.toFixed(2)}s)`;
 
       const modal = el("playerModal");
@@ -628,6 +801,26 @@
   el("playerModal").addEventListener("click", (e) => {
     if (e.target === el("playerModal")) closePlayer();
   });
+
+  // --- Architecture collapsible section
+  function toggleArchitecture(){
+    state.archOpen = !state.archOpen;
+    const content = el("archContent");
+    const arrow = el("archArrow");
+    const toggleText = el("archToggleText");
+
+    if (state.archOpen){
+      content.classList.add("open");
+      arrow.classList.add("open");
+      toggleText.textContent = "Hide";
+    } else {
+      content.classList.remove("open");
+      arrow.classList.remove("open");
+      toggleText.textContent = "Show";
+    }
+  }
+
+  el("archHeader").onclick = toggleArchitecture;
 
   // --- Wire UI events
   el("pickBtn").onclick = () => el("file").click();
