@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="icon" href="/static/favicon.png" type="image/png">
+  <link rel="shortcut icon" href="/static/favicon.png" type="image/png">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Video Search</title>
@@ -36,11 +37,12 @@
       margin-bottom:16px;
     }
     .brand{display:flex;align-items:center;gap:12px}
-    .logo{
-      width:40px;height:40px;border-radius:12px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display:grid;place-items:center; font-weight:800; color:#fff;
-      box-shadow: 0 12px 26px rgba(79,70,229,.18);
+    .logo img{
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
     }
     h1{font-size:18px;margin:0;line-height:1.2}
     .sub{color:var(--muted);font-size:13px;margin-top:2px}
@@ -271,7 +273,9 @@
   <div class="wrap">
     <div class="top">
       <div class="brand">
-        <div class="logo">V</div>
+        <div class="logo">
+          <img src="/static/favicon.png" alt="Logo" />
+        </div>
         <div>
           <h1>ML Video Search Platform</h1>
           <div class="sub">Upload → Search moments with AI</div>
