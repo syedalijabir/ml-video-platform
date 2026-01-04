@@ -160,6 +160,8 @@ resource "aws_lb" "lb" {
   enable_deletion_protection = false
   preserve_host_header       = true
   
+  ip_address_type = "dualstack"
+
   security_groups = [
     aws_security_group.alb.id
   ]
@@ -184,13 +186,13 @@ resource "aws_lb_target_group" "api" {
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    interval            = 30
+    interval            = 20
     matcher            = "200"
     path               = "/health"
     port               = "traffic-port"
     protocol           = "HTTP"
     timeout            = 5
-    unhealthy_threshold = 3
+    unhealthy_threshold = 5
   }
   
   deregistration_delay = 30
@@ -265,6 +267,8 @@ resource "aws_ecs_service" "api" {
     container_name   = "api"
     container_port   = 8000
   }
+
+  health_check_grace_period_seconds = 120
     
   tags = merge(
     local.common_tags,

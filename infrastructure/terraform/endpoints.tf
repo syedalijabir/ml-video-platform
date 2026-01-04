@@ -47,3 +47,37 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
     }
   )
 }
+
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.${var.region}.logs"
+  vpc_endpoint_type = "Interface"
+
+  private_dns_enabled = true
+  subnet_ids          = module.vpc.private_subnets
+  security_group_ids  = [aws_security_group.vpc_endpoint.id]
+
+  tags = merge(
+    local.common_tags,
+    {
+        Name = "${local.system_key}-logs-endpoint"
+    }
+  )
+}
+
+resource "aws_vpc_endpoint" "sqs" {
+  vpc_id            =  module.vpc.vpc_id
+  service_name      = "com.amazonaws.${var.region}.sqs"
+  vpc_endpoint_type = "Interface"
+
+  private_dns_enabled = true
+  subnet_ids          = module.vpc.private_subnets
+  security_group_ids  = [aws_security_group.vpc_endpoint.id]
+
+  tags = merge(
+    local.common_tags,
+    {
+        Name = "${local.system_key}-sqs-endpoint"
+    }
+  )
+}

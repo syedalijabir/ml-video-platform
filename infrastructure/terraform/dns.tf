@@ -14,6 +14,18 @@ resource "aws_route53_record" "ml-video" {
   }
 }
 
+resource "aws_route53_record" "ml-video-ipv6" {
+  zone_id = data.aws_route53_zone.public.zone_id
+  name    = local.fqdn
+  type    = "AAAA"
+
+  alias {
+    name                   = aws_lb.lb.dns_name
+    zone_id                = aws_lb.lb.zone_id
+    evaluate_target_health = false
+  }
+}
+
 resource "aws_acm_certificate" "cert" {
   domain_name       = local.fqdn
   validation_method = "DNS"

@@ -22,6 +22,14 @@ module "vpc" {
     cidrsubnet(var.vpc_cidr, var.vpc_network_bits, 5)
   ]
 
+  enable_ipv6                                    = true
+  public_subnet_assign_ipv6_address_on_creation  = true
+  private_subnet_assign_ipv6_address_on_creation = true
+  create_egress_only_igw = true
+
+  private_subnet_ipv6_prefixes  = [0, 1, 2]
+  public_subnet_ipv6_prefixes   = [3, 4, 5]
+
   enable_nat_gateway     = true
   single_nat_gateway     = true
   one_nat_gateway_per_az = false

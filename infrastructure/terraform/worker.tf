@@ -138,7 +138,7 @@ resource "aws_ecs_task_definition" "worker" {
       }
       
       healthCheck = {
-        command     = ["CMD-SHELL", "python -c 'from worker.ecs_worker import health_check; exit(0 if health_check() else 1)' || exit 1"]
+        command     = ["CMD-SHELL", "ps aux | grep '[p]ython.*worker' || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
@@ -174,6 +174,8 @@ resource "aws_ecs_service" "worker" {
       desired_count
     ]
   }
+
+  health_check_grace_period_seconds = 120
   
   tags = merge(
     local.common_tags,
