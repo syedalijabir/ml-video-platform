@@ -9,6 +9,15 @@ resource "aws_security_group" "alb" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  ingress {
+    description      = "HTTP IPv6"
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
   
   ingress {
     from_port   = 443
@@ -17,11 +26,26 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   
+  ingress {
+    description      = "HTTPS IPv6"
+    from_port        = 443
+    to_port          = 443
+    protocol         = "tcp"
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    ipv6_cidr_blocks = ["::/0"]
   }
   
   tags = merge(
@@ -49,6 +73,13 @@ resource "aws_security_group" "api" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    ipv6_cidr_blocks = ["::/0"]
   }
   
   tags = merge(
@@ -97,7 +128,14 @@ resource "aws_security_group" "worker" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
   tags = merge(
     local.common_tags,
     {
@@ -137,6 +175,7 @@ resource "aws_security_group" "vpc_endpoint" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
+    ipv6_cidr_blocks = [module.vpc.vpc_ipv6_cidr_block]
   }
   
   egress {
@@ -145,7 +184,14 @@ resource "aws_security_group" "vpc_endpoint" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
   tags = {
     Name = "${local.system_key}-vpc-endpoint-sg"
   }
