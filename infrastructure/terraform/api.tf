@@ -159,8 +159,6 @@ resource "aws_lb" "lb" {
   enable_http2               = true
   enable_deletion_protection = false
   preserve_host_header       = true
-  
-  ip_address_type = "dualstack"
 
   security_groups = [
     aws_security_group.alb.id
@@ -186,13 +184,13 @@ resource "aws_lb_target_group" "api" {
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    interval            = 20
+    interval            = 30
     matcher            = "200"
     path               = "/health"
     port               = "traffic-port"
     protocol           = "HTTP"
     timeout            = 5
-    unhealthy_threshold = 5
+    unhealthy_threshold = 6
   }
   
   deregistration_delay = 30
@@ -276,4 +274,88 @@ resource "aws_ecs_service" "api" {
         Name = "${local.system_key}-api-service"
     }
   )
+}
+
+resource "aws_appautoscaling_target" "api" {
+  max_capacity       = 2
+  min_capacity       = 1
+  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.api.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+
+  depends_on = [aws_ecs_service.api]
+}
+
+resource "aws_appautoscaling_policy" "api_cpu" {
+  name               = "${local.system_key}-api-cpu-autoscaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.api.resource_id
+  scalable_dimension = aws_appautoscaling_target.api.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.api.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+
+    target_value       = 85.0
+    scale_in_cooldown  = 300
+    scale_out_cooldown = 60
+  }
+}
+
+resource "aws_appautoscaling_policy" "api_memory" {
+  name               = "${local.system_key}-api-memory-autoscaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.api.resource_id
+  scalable_dimension = aws_appautoscaling_target.api.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.api.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
+    }
+
+    target_value       = 85.0
+    scale_in_cooldown  = 300
+    scale_out_cooldown = 60
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "api_cpu_high" {
+  alarm_name          = "${local.system_key}-api-cpu-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "API service CPU utilization is too high"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.api.name
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "api_memory_high" {
+  alarm_name          = "${local.system_key}-api-memory-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 90
+  alarm_description   = "API service memory utilization is too high"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.api.name
+  }
+
+  tags = local.common_tags
 }
